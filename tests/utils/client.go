@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mesosphere/data-services-kudo/frameworks/kafka/tests/suites"
+	"github.com/mesosphere/kudo-kafka-operator/tests/suites"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/apps/v1beta2"

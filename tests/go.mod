@@ -1,4 +1,4 @@
-module github.com/mesosphere/data-services-kudo/frameworks/kafka/tests
+module github.com/mesosphere/kudo-kafka-operator/tests
 
 go 1.12
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/mesosphere/data-services-kudo/frameworks/kafka/tests/suites"
+	. "github.com/mesosphere/kudo-kafka-operator/tests/suites"
 
-	"github.com/mesosphere/data-services-kudo/frameworks/kafka/tests/utils"
+	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
