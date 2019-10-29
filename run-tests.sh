@@ -1,7 +1,7 @@
 #!/bin/bash
 set -exu
 
-DOCKER_IMAGE=golang:1.12.5-stretch
+DOCKER_IMAGE=golang:1.13.3-stretch
 
 kafka_repo_root="$(realpath "$(dirname "$0")")"
 vendor_dir="${kafka_repo_root}/shared/vendor"
