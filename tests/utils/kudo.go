@@ -104,7 +104,7 @@ func updateInstancesCount(name, namespace string, count int) (string, error) {
 	return "updated", nil
 }
 
-func (c *KubernetesTestClient) InstallOperatorFromPath(resourcesAbsoluteDirectoryPath, namespace, name, params string) {
+func (c *KubernetesTestClient) InstallOperatorFromPath(resourcesAbsoluteDirectoryPath, namespace, name string, params map[string]string) {
 	kubectlPath := getKubectlPath()
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 	log.Info(fmt.Sprintf("Installing framework from PATH: %s", resourcesAbsoluteDirectoryPath))
@@ -112,8 +112,8 @@ func (c *KubernetesTestClient) InstallOperatorFromPath(resourcesAbsoluteDirector
 	install_cmd := []string{"kudo", "install", fmt.Sprintf("--instance=%s", name),
 		resourcesAbsoluteDirectoryPath, fmt.Sprintf("--namespace=%s", namespace)}
 
-	if len(params) > 0 {
-		install_cmd = append(install_cmd, "--parameter", params)
+	for key, val := range params {
+		install_cmd = append(install_cmd, "-p", fmt.Sprintf("%s=%s", key, val))
 	}
 
 	cmd := exec.Command(kubectlPath, install_cmd...)
@@ -147,6 +147,19 @@ func (c *KubernetesTestClient) LogObjectsOfKinds(namespace string, components []
 		}
 		log.Info(fmt.Sprintf(string(out)))
 	}
+}
+
+func (c *KubernetesTestClient) PrintLogsOfPod(containerName, podName, namespace string) {
+	kubectlPath := getKubectlPath()
+	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
+
+	cmd := exec.Command(kubectlPath, "logs", containerName, podName, fmt.Sprintf("--namespace=%s", namespace))
+	log.Infoln(fmt.Sprintf("logs %s -c %s --namespace=%s", podName, containerName, namespace))
+	out, err := cmd.Output()
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+	log.Info(string(out))
 }
 
 func (c *KubernetesTestClient) PrintLogsOfNamespace(namespace string) {

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kdc
+  labels:
+    app: kdc
+spec:
+  containers:
+    - name: kdc
+      imagePullPolicy: Always
+      image: nvaziri/kdc:mesosphere
+      ports:
+        - containerPort: 2500
+          name: kdc
+      env:
+        - name: PORT_KDC
+          value: "2500"
+      resources:
+        requests:
+          memory: 128Mi
+          cpu: 500m
+        limits:
+          memory: 500Mi
+          cpu: 1000m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kdc-service
+  labels:
+    app: kdc-service
+spec:
+  ports:
+    - port: 2500
+      name: kdc
+  clusterIP: None
+  selector:
+    app: kdc

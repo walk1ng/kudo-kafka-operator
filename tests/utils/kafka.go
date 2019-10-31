@@ -21,6 +21,7 @@ var (
 	defaultKakfaRetryInterval = 1 * time.Second
 	defaultNamespace          = "default"
 	defaultInstanceName       = "kafka"
+	defaultKerberosEnabled    = false
 )
 
 type KafkaClient struct {
@@ -29,10 +30,11 @@ type KafkaClient struct {
 }
 
 type KafkaClientConfiguration struct {
-	Retry         *int
-	RetryInterval *time.Duration
-	Namespace     *string
-	InstanceName  *string
+	Retry           *int
+	RetryInterval   *time.Duration
+	Namespace       *string
+	InstanceName    *string
+	KerberosEnabled bool
 }
 
 func NewKafkaClient(kuberentesTestClient *KubernetesTestClient, configuration *KafkaClientConfiguration) *KafkaClient {
@@ -54,6 +56,13 @@ func NewKafkaClient(kuberentesTestClient *KubernetesTestClient, configuration *K
 	}
 }
 
+func getKeytabsConfigCommand() string {
+	return "printf 'KafkaClient {\ncom.sun.security.auth.module.Krb5LoginModule required\nuseKeyTab=true\nstoreKey=true\nuseTicketCache=false\nkeyTab=\"kafka.keytab\"\nprincipal=\"kafka/%s@LOCAL\";\n};' $(hostname -f) > /tmp/kafka_client_jaas.conf;" +
+		"export KAFKA_OPTS=\"-Djava.security.auth.login.config=/tmp/kafka_client_jaas.conf -Djava.security.krb5.conf=${KAFKA_HOME}/config/krb5.conf\";" +
+		"KAFKA_PRODUCER_CONFIG_OPTIONS=\"--producer-property sasl.mechanism=GSSAPI --producer-property security.protocol=SASL_PLAINTEXT --producer-property sasl.kerberos.service.name=kafka\";" +
+		"KAFKA_CONSUMER_CONFIG_OPTIONS=\"--consumer-property sasl.mechanism=GSSAPI --consumer-property security.protocol=SASL_PLAINTEXT --consumer-property sasl.kerberos.service.name=kafka\";"
+}
+
 func (c *KafkaClient) WriteInTopic(podName, container, topicName, message string) (string, error) {
 	return Retry(*c.conf.Retry, *c.conf.RetryInterval, ">>", func() (string, error) {
 		return c.writeInTopic(podName, container, topicName, message)
@@ -66,10 +75,17 @@ func (c *KafkaClient) writeInTopic(podName, container, topicName, message string
 		logrus.Error(fmt.Sprintf("Error getting BROKER_PORT for kafka: %v\n", err))
 		return "", err
 	}
-
-	command := []string{
-		"bash", "-c", fmt.Sprintf("echo '%s' | /opt/kafka/bin/kafka-console-producer.sh --broker-list "+
-			"$(hostname -f):%s --topic %s", message, port, topicName),
+	command := []string{}
+	if c.conf.KerberosEnabled {
+		command = []string{
+			"bash", "-c", getKeytabsConfigCommand() + fmt.Sprintf("echo '%s' | /opt/kafka/bin/kafka-console-producer.sh $KAFKA_PRODUCER_CONFIG_OPTIONS --broker-list "+
+				"$(hostname -f):%s --topic %s", message, port, topicName),
+		}
+	} else {
+		command = []string{
+			"bash", "-c", fmt.Sprintf("echo '%s' | /opt/kafka/bin/kafka-console-producer.sh --broker-list "+
+				"$(hostname -f):%s --topic %s", message, port, topicName),
+		}
 	}
 	logrus.Println(command)
 	return c.ExecInPod(*c.conf.Namespace, podName, container, command)
@@ -87,9 +103,17 @@ func (c *KafkaClient) readFromTopic(podName, container, topicName string) (strin
 		logrus.Error(fmt.Sprintf("Error getting BROKER_PORT for kafka: %v\n", err))
 		return "", err
 	}
-	command := []string{
-		"bash", "-c", fmt.Sprintf("/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
-			"$(hostname -f):%s --topic %s --from-beginning --timeout-ms 5000", port, topicName),
+	command := []string{}
+	if c.conf.KerberosEnabled {
+		command = []string{
+			"bash", "-c", getKeytabsConfigCommand() + fmt.Sprintf("/opt/kafka/bin/kafka-console-consumer.sh $KAFKA_CONSUMER_CONFIG_OPTIONS --bootstrap-server "+
+				"$(hostname -f):%s --topic %s --from-beginning --timeout-ms 5000", port, topicName),
+		}
+	} else {
+		command = []string{
+			"bash", "-c", fmt.Sprintf("/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
+				"$(hostname -f):%s --topic %s --from-beginning --timeout-ms 5000", port, topicName),
+		}
 	}
 	logrus.Println(command)
 	return c.ExecInPod(*c.conf.Namespace, podName, container, command)
@@ -185,7 +209,7 @@ func (c *KafkaClient) ExecInPod(namespace, name, container string, commands []st
 	return stdoutString, nil
 }
 
-func InstallKudoOperator(namespace, name, operatorPathEnv, parameters string) {
+func InstallKudoOperator(namespace, name, operatorPathEnv string, parameters map[string]string) {
 	validateFrameworkEnvVariable(operatorPathEnv)
 	KClient.InstallOperatorFromPath(os.Getenv(operatorPathEnv), namespace, name, parameters)
 	KClient.LogObjectsOfKinds(namespace, []string{"svc", "pdb", "operatorversions", "operators", "instance"})
@@ -193,4 +217,15 @@ func InstallKudoOperator(namespace, name, operatorPathEnv, parameters string) {
 
 func DeleteInstances(namespace, name string) {
 	KClient.DeleteInstance(namespace, name)
+}
+
+func GetKafkaKeyabs(namespace string) []string {
+	return []string{
+		"livenessProbe/kafka-kafka-0.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+		"livenessProbe/kafka-kafka-1.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+		"livenessProbe/kafka-kafka-2.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+		"kafka/kafka-kafka-0.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+		"kafka/kafka-kafka-1.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+		"kafka/kafka-kafka-2.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+	}
 }

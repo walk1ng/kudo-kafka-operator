@@ -22,6 +22,7 @@ docker run --rm \
 	-e DS_KUDO_VERSION=${DS_KUDO_VERSION} \
 	-e KUBECTL_PATH=${vendor_dir}/kubectl.sh  \
 	-e VENDOR_DIR=${vendor_dir} \
+	-e REPO_ROOT=${kafka_repo_root} \
 	-v ${KUBECONFIG}:/root/.kube/config:ro \
 	-v ${zk_operator_dir}:${zk_operator_dir}:ro \
 	-v ${kafka_operator_dir}:${kafka_operator_dir}:ro \
