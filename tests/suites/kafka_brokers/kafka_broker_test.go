@@ -86,12 +86,14 @@ var _ = Describe("KafkaTest", func() {
 
 var _ = BeforeSuite(func() {
 	utils.TearDown(TestNamespace)
+	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 	utils.KClient.CreateNamespace(TestNamespace, false)
 	utils.Setup(TestNamespace)
 })
 
 var _ = AfterSuite(func() {
 	utils.TearDown(TestNamespace)
+	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 })
 
 func TestService(t *testing.T) {

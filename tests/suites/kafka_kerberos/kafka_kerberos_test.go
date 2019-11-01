@@ -59,6 +59,7 @@ var _ = Describe("KafkaTest", func() {
 
 var _ = BeforeSuite(func() {
 	utils.TearDown(customNamespace)
+	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 	utils.KClient.CreateNamespace(customNamespace, false)
 	Expect(krb5Client.Deploy()).To(BeNil())
 	utils.SetupWithKerberos(customNamespace)
@@ -67,6 +68,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(krb5Client.TearDown()).To(BeNil())
+	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 	utils.KClient.DeleteNamespace(customNamespace)
 })
 

@@ -219,6 +219,10 @@ func DeleteInstances(namespace, name string) {
 	KClient.DeleteInstance(namespace, name)
 }
 
+func DeletePVCs(containsString string) error {
+	return KClient.DeletePVCs(containsString)
+}
+
 func GetKafkaKeyabs(namespace string) []string {
 	return []string{
 		"livenessProbe/kafka-kafka-0.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",

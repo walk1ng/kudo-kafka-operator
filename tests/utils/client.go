@@ -233,9 +233,15 @@ func (c *KubernetesTestClient) GetServicesCount(name string, namespace string) i
 }
 
 func Setup(namespace string) {
-	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{})
+	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{
+		"MEMORY": "256Mi",
+		"CPUS":   "0.25",
+	})
 	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 30)
-	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{})
+	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
+		"BROKER_MEM":  "1Gi",
+		"BROKER_CPUS": "0.25",
+	})
 	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 30)
 }
 
@@ -276,6 +282,22 @@ func Retry(attempts int, sleep time.Duration, condition string, f func() (string
 		log.Infoln("retrying after error:", err)
 	}
 	return resp, fmt.Errorf("after %d attempts, last error: %s", attempts, err)
+}
+
+func (c *KubernetesTestClient) DeletePVCs(containsString string) error {
+	pvcs, err := c.CoreV1().PersistentVolumeClaims("").List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, pvc := range pvcs.Items {
+		if strings.Contains(pvc.GetName(), containsString) {
+			err = c.CoreV1().PersistentVolumeClaims(pvc.GetNamespace()).Delete(pvc.GetName(), &metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *KubernetesTestClient) ExecInPod(namespace string, podName string, containerName string, commands []string) (string, error) {
