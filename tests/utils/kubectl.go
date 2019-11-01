@@ -24,7 +24,7 @@ type environment struct {
 	namespace   string
 }
 
-func Create(resourcesAbsoluteDirectoryPath, namespace string) {
+func Apply(resourcesAbsoluteDirectoryPath, namespace string) {
 	applyManifests(resourcesAbsoluteDirectoryPath, "apply", namespace)
 }
 

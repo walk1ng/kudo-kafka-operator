@@ -29,7 +29,7 @@ func (k *KDCClient) Deploy() error {
 	repoRoot, exists := os.LookupEnv("REPO_ROOT")
 
 	if exists {
-		Create(repoRoot+"/tests/suites/kafka_kerberos/resources/kdc.yaml", k.Namespace)
+		Apply(repoRoot+"/tests/suites/kafka_kerberos/resources/kdc.yaml", k.Namespace)
 		return KClient.WaitForPod("kdc", k.Namespace, 240)
 	}
 
