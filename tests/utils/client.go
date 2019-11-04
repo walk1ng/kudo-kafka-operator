@@ -28,7 +28,7 @@ import (
 const (
 	EMPTY_CONDITION = ""
 	KAFKA_INSTANCE  = "kafka"
-	ZK_INSTANCE     = "zk"
+	ZK_INSTANCE     = "zookeeper-instance"
 )
 
 var (
