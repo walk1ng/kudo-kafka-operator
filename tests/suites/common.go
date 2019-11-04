@@ -6,7 +6,7 @@ const (
 	TestNamespace               = "default"
 	DefaultContainerName        = "k8skafka"
 	DefaultKafkaStatefulSetName = "kafka-kafka"
-	DefaultZkStatefulSetName    = "zk-zookeeper"
+	DefaultZkStatefulSetName    = "zookeeper-instance-zookeeper"
 	DefaultKudoKafkaInstance    = "kafka"
 )
 
