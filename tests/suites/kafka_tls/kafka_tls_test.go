@@ -34,13 +34,15 @@ var _ = Describe("KafkaTLS", func() {
 					[]string{"findmnt", "/etc/tls/bin"})
 				Expect(err).To(BeNil())
 				Expect(output).To(ContainSubstring("kubernetes.io~configmap/enable-tls"))
-				crtMD5, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", suites.DefaultContainerName,
-					[]string{"openssl", "x509", "-noout", "-modulus", "-in", "/etc/tls/certs/tls.crt", "|", "openssl", "md5"})
+
+				crtModulus, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", suites.DefaultContainerName,
+					[]string{"openssl", "x509", "-noout", "-modulus", "-in", "/etc/tls/certs/tls.crt"})
 				Expect(err).To(BeNil())
-				keyMD5, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", suites.DefaultContainerName,
-					[]string{"openssl", "rsa", "-noout", "-modulus", "-in", "/etc/tls/certs/tls.key", "|", "openssl", "md5"})
+				keyModulus, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", suites.DefaultContainerName,
+					[]string{"openssl", "rsa", "-noout", "-modulus", "-in", "/etc/tls/certs/tls.key"})
+
 				Expect(err).To(BeNil())
-				Expect(crtMD5).To(Equal(keyMD5))
+				Expect(crtModulus).To(Equal(keyModulus))
 			})
 			It("verify the SSL listener", func() {
 				output, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", suites.DefaultContainerName,
