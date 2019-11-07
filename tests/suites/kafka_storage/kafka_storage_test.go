@@ -59,7 +59,6 @@ var _ = Describe("KafkaStorage", func() {
 				Expect(err).To(BeNil())
 				Expect(output).To(ContainSubstring("/var/lib/kafka"))
 			})
-
 		})
 	})
 })

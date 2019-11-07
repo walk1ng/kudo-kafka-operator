@@ -37,6 +37,7 @@ var _ = Describe("KafkaTest", func() {
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 4, 240)
 				Expect(err).To(BeNil())
+				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(3), DefaultContainerName, 100)
 				out, err := kafkaClient.CreateTopic(GetBrokerPodName(3), DefaultContainerName, topicName, "0:1:3")
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring("Created topic"))
