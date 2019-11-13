@@ -29,3 +29,28 @@ git submodule from the private data-services-kudo repository.
 
 https://git-scm.com/book/en/v2/Git-Tools-Submodules contains some useful
 information about how to work with submodules.
+
+### Go modules
+In this project we always aim to target one version of Kubernetes API and use `replace` for kubernetes client/api modules. 
+
+In case for kubernetes 1.16.2, it would be 
+```
+curl -s https://proxy.golang.org/k8s.io/api/@v/kubernetes-1.16.2.info | jq -r .Version
+curl -s https://proxy.golang.org/k8s.io/apimachinery/@v/kubernetes-1.16.2.info | jq -r .Version
+curl -s https://proxy.golang.org/k8s.io/client-go/@v/kubernetes-1.16.2.info | jq -r .Version
+```
+
+with next output:
+```
+v0.0.0-20191016110408-35e52d86657a
+v0.0.0-20191004115801-a2eda9f80ab8
+v0.0.0-20191016111102-bec269661e48
+```
+
+and we can use them in the `go.mod`
+
+```
+replace k8s.io/api => k8s.io/api v0.0.0-20191016110408-35e52d86657a
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115801-a2eda9f80ab8
+replace k8s.io/client-go => k8s.io/client-go v0.0.0-20191016111102-bec269661e48
+```

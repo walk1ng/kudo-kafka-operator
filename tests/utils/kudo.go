@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kudobuilder/kudo/pkg/apis/kudo/v1alpha1"
+	"github.com/kudobuilder/kudo/pkg/apis/kudo/v1beta1"
 	"github.com/kudobuilder/kudo/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,8 +18,8 @@ var (
 	kudoClient *versioned.Clientset
 )
 
-func (c *KubernetesTestClient) GetInstancesInNamespace(namespace string) (*v1alpha1.InstanceList, error) {
-	instancesClient := kudoClient.KudoV1alpha1().Instances(namespace)
+func (c *KubernetesTestClient) GetInstancesInNamespace(namespace string) (*v1beta1.InstanceList, error) {
+	instancesClient := kudoClient.KudoV1beta1().Instances(namespace)
 	instancesList, err := instancesClient.List(metav1.ListOptions{})
 	if err != nil {
 		log.Errorf("error getting kudo instances in namespace kubernetes client: %v", err)
@@ -29,7 +29,7 @@ func (c *KubernetesTestClient) GetInstancesInNamespace(namespace string) (*v1alp
 }
 
 func (c *KubernetesTestClient) GetParamForKudoInstance(name, namespace, param string) (string, error) {
-	instancesClient := kudoClient.KudoV1alpha1().Instances(namespace)
+	instancesClient := kudoClient.KudoV1beta1().Instances(namespace)
 	instance, err := instancesClient.Get(name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("error getting kudo instance in namespace kubernetes client: %v", err)
@@ -43,7 +43,7 @@ func (c *KubernetesTestClient) GetParamForKudoInstance(name, namespace, param st
 }
 
 func (c *KubernetesTestClient) GetParamForKudoFrameworkVersion(name, namespace, param string) (string, error) {
-	frameworkVersionClient := kudoClient.KudoV1alpha1().OperatorVersions(namespace)
+	frameworkVersionClient := kudoClient.KudoV1beta1().OperatorVersions(namespace)
 	operatorVersionsList, err := frameworkVersionClient.List(metav1.ListOptions{})
 	kafkaFrameworkVersion := ""
 	for _, value := range operatorVersionsList.Items {
@@ -81,7 +81,7 @@ func (c *KubernetesTestClient) UpdateInstancesCount(name, namespace string, coun
 }
 
 func updateInstancesCount(name, namespace string, count int) (string, error) {
-	instancesClient := kudoClient.KudoV1alpha1().Instances(namespace)
+	instancesClient := kudoClient.KudoV1beta1().Instances(namespace)
 	instance, err := instancesClient.Get(name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("error getting kudo instance in namespace %s for instance %s kubernetes client: %v", namespace, name, err)
