@@ -14,6 +14,14 @@ ls ${operators_repo_root}
 ls ${zk_operator_dir}
 ls ${kafka_operator_dir}
 
+# run KUDO Kafka utils unit tests
+docker run --rm \
+	-w ${kafka_repo_root}/images/kafka-utils \
+	-v ${kafka_repo_root}:${kafka_repo_root} \
+	${DOCKER_IMAGE} \
+	bash -c ${kafka_repo_root}/images/kafka-utils/run-tests.sh
+
+# run KUDO Kafka integration tests
 docker run --rm \
 	-w ${kafka_repo_root}/tests \
 	-e KUBECONFIG=/root/.kube/config \

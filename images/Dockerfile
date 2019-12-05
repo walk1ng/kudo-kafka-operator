@@ -1,4 +1,11 @@
-FROM debian:stable-20190610 as java8-builder
+FROM golang:alpine AS build-env
+WORKDIR /kafka-utils
+ADD ./kafka-utils /kafka-utils
+RUN apk add --no-cache gcc musl-dev git mercurial ca-certificates
+ENV GO111MODULE=on
+RUN cd /kafka-utils && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o kafka-utils
+
+FROM debian:stable-20190610 AS java8-builder
 
 RUN apt update -qq && \
     apt install wget -y
@@ -32,8 +39,7 @@ RUN groupadd -g $GID -o $UNAME && \
 RUN curl -O https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz && \
     mkdir $KAFKA_HOME && \
     tar xvfz kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz -C $KAFKA_HOME --strip-components=1 && \
-    rm -f kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz* && \
-    chown -R "$UNAME:$UNAME" $KAFKA_HOME
+    rm -f kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz*
 
 RUN curl -O "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_EXPORTER_VERSION}/jmx_prometheus_javaagent-${JMX_EXPORTER_VERSION}.jar" && \
     curl -O "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_EXPORTER_VERSION}/jmx_prometheus_javaagent-${JMX_EXPORTER_VERSION}.jar.sha1" && \
@@ -43,9 +49,10 @@ RUN curl -O "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_jav
     mv "jmx_prometheus_javaagent-${JMX_EXPORTER_VERSION}.jar" "/opt/jmx-exporter/jmx_prometheus_javaagent.jar"
 
 RUN curl "https://downloads.mesosphere.com/kafka/assets/kafka-custom-principal-builder-1.0.0.jar" --output ${KAFKA_HOME}/libs/kafka-custom-principal-builder-1.0.0.jar
-
 WORKDIR $KAFKA_HOME
 
 COPY scripts/metrics-config.yml /opt/kafka/
+COPY --from=build-env /kafka-utils/ /opt/kafka/
+RUN chown -R "$UNAME:$UNAME" $KAFKA_HOME
 
 USER $UNAME
