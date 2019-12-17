@@ -14,6 +14,11 @@ RUN wget https://downloads.mesosphere.com/java/openjdk-jre-8u212b03-hotspot-linu
     mkdir /srv/jdk && \
     tar -xvvf /srv/openjdk-jre-8u212b03-hotspot-linux-x64.tar.gz --strip-components=1 -C /srv/jdk
 
+FROM openjdk:8-jdk as cruise-control
+RUN git clone --branch 2.0.77 https://github.com/linkedin/cruise-control.git
+WORKDIR cruise-control
+RUN ./gradlew jar --warning-mode=all
+
 # using debian:stretch-20190610-slim
 FROM debian@sha256:9490c476443a3869e39c2897fa66c91daf5dcbbfca53c976dac7bbdc45775b28
 
@@ -53,6 +58,7 @@ WORKDIR $KAFKA_HOME
 
 COPY scripts/metrics-config.yml /opt/kafka/
 COPY --from=build-env /kafka-utils/ /opt/kafka/
+COPY --from=cruise-control /cruise-control/cruise-control-metrics-reporter/build/libs/cruise-control-metrics-reporter-2.0.77.jar /opt/kafka/libs
 RUN chown -R "$UNAME:$UNAME" $KAFKA_HOME
 
 USER $UNAME
