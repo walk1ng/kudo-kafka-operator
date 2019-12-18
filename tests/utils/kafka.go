@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	defaultKakfaRetry         = 3
-	defaultKakfaRetryInterval = 1 * time.Second
+	defaultKafkaRetry         = 3
+	defaultKafkaRetryInterval = 1 * time.Second
 	defaultNamespace          = "default"
 	defaultInstanceName       = "kafka"
 	defaultKerberosEnabled    = false
@@ -40,10 +40,10 @@ type KafkaClientConfiguration struct {
 
 func NewKafkaClient(kuberentesTestClient *KubernetesTestClient, configuration *KafkaClientConfiguration) *KafkaClient {
 	if configuration.RetryInterval == nil {
-		configuration.RetryInterval = &defaultKakfaRetryInterval
+		configuration.RetryInterval = &defaultKafkaRetryInterval
 	}
 	if configuration.Retry == nil {
-		configuration.Retry = &defaultKakfaRetry
+		configuration.Retry = &defaultKafkaRetry
 	}
 	if configuration.Namespace == nil {
 		configuration.Namespace = &defaultNamespace

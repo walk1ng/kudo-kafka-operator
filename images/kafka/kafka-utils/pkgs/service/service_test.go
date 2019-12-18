@@ -170,7 +170,7 @@ var _ = Describe("[Kafka KafkaService]", func() {
 		}
 		for _, test := range tests {
 			It(test.name, func() {
-				kakfaService := KafkaService{
+				kafkaService := KafkaService{
 					Client: testclient.NewSimpleClientset(test.svc, test.node),
 					Env:    mockEnv,
 				}
@@ -180,7 +180,7 @@ var _ = Describe("[Kafka KafkaService]", func() {
 					log.Fatal(err)
 				}
 				os.Setenv("LISTENER_SECURITY_PROTOCOL_MAP", "INTERNAL:PLAINTEXT")
-				err = kakfaService.WriteIngressToPath(dir)
+				err = kafkaService.WriteIngressToPath(dir)
 				Expect(err).To(BeNil())
 
 				externalAdvertisedListeners := readFileAsString(fmt.Sprintf("%s/%s", dir, EXTERNAL_ADVERTISED_LISTENERS_PATH)) // just pass the file name

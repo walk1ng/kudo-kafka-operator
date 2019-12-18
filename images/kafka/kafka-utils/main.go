@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	KAKFA_HOME = "/opt/kafka"
+	KAFKA_HOME = "/opt/kafka"
 )
 
 func main() {
@@ -17,12 +17,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing client: %+v", err)
 	}
-	kakfaService := service.KafkaService{
+	kafkaService := service.KafkaService{
 		Client: k8sClient,
 		Env:    &service.EnvironmentImpl{},
 	}
 	log.Infoln("Running kafka-utils...")
-	err = kakfaService.WriteIngressToPath(KAKFA_HOME)
+	err = kafkaService.WriteIngressToPath(KAFKA_HOME)
 	if err != nil {
 		log.Errorf("could not run the kafka utils bootstrap: %v", err)
 	} else {

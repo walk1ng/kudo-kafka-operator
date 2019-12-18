@@ -52,7 +52,7 @@ cruise-control)
 esac
 
 if [[ "${BUILD_KAFKA}" == "true" ]]; then
-  docker image build --build-arg KAFKA_VERSION=${KAFKA_VERSION} -t mesosphere/kafka:${KAKFA_TAG_VERSION} ./kafka
+  docker image build --build-arg KAFKA_VERSION=${KAFKA_VERSION} -t mesosphere/kafka:${KAFKA_TAG_VERSION} ./kafka
 fi
 if [[ "${BUILD_CRUISE}" == "true" ]]; then
   docker image build --build-arg CRUISE_CONTROL_VERSION=${CRUISE_CONTROL_VERSION} --build-arg CRUISE_CONTROL_UI_VERSION=${CRUISE_CONTROL_UI_VERSION} \
