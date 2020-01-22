@@ -17,7 +17,7 @@ import (
 var (
 	topicName              string
 	customNamespace        = "kafka-upgrade-test"
-	defaultOperatorVersion = "1.0.2"
+	defaultOperatorVersion = "1.1.1"
 	kafkaClient            = utils.NewKafkaClient(utils.KClient, &utils.KafkaClientConfiguration{
 		Namespace: utils.String(customNamespace),
 	})

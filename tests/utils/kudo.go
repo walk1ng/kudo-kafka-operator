@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mesosphere/kudo-kafka-operator/tests/suites"
+
 	"github.com/kudobuilder/kudo/pkg/apis/kudo/v1beta1"
 	"github.com/kudobuilder/kudo/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"
@@ -143,7 +145,7 @@ func (c *KubernetesTestClient) installOrUpgradeOperator(operation, namespace, op
 	}
 
 	if version != "" {
-		install_cmd = append(install_cmd, fmt.Sprintf("--version=%s", version))
+		install_cmd = append(install_cmd, fmt.Sprintf("--operator-version=%s", version))
 	}
 
 	for key, val := range params {
@@ -151,6 +153,7 @@ func (c *KubernetesTestClient) installOrUpgradeOperator(operation, namespace, op
 	}
 
 	cmd := exec.Command(kubectlPath, install_cmd...)
+	log.Infoln(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Error(string(err.(*exec.ExitError).Stderr))
@@ -162,6 +165,7 @@ func (c *KubernetesTestClient) DeleteInstance(namespace, name string) {
 	kubectlPath := getKubectlPath()
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 	cmd := exec.Command(kubectlPath, "delete", "instances", name, fmt.Sprintf("--namespace=%s", namespace))
+	log.Infoln(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Error(string(err.(*exec.ExitError).Stderr))
@@ -202,7 +206,7 @@ func (c *KubernetesTestClient) LogObjectsOfKinds(namespace string, components []
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 	for _, objectKind := range components {
 		cmd := exec.Command(kubectlPath, "get", objectKind, fmt.Sprintf("--namespace=%s", namespace))
-		log.Infoln(fmt.Sprintf("get %s --namespace=%s", objectKind, namespace))
+		log.Infoln(cmd.Args)
 		out, err := cmd.Output()
 		if err != nil {
 			log.Error(string(err.(*exec.ExitError).Stderr))
@@ -215,8 +219,8 @@ func (c *KubernetesTestClient) PrintLogsOfPod(containerName, podName, namespace 
 	kubectlPath := getKubectlPath()
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 
-	cmd := exec.Command(kubectlPath, "logs", containerName, podName, fmt.Sprintf("--namespace=%s", namespace))
-	log.Infoln(fmt.Sprintf("logs %s -c %s --namespace=%s", podName, containerName, namespace))
+	cmd := exec.Command(kubectlPath, "logs", podName, "-c", containerName, fmt.Sprintf("--namespace=%s", namespace))
+	log.Infoln(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Errorf("%v", err)
@@ -228,8 +232,8 @@ func (c *KubernetesTestClient) PrintLogsOfNamespace(namespace string) {
 	kubectlPath := getKubectlPath()
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 
-	cmd := exec.Command(kubectlPath, "logs", fmt.Sprintf("-l heritage=kudo"), fmt.Sprintf("--namespace=%s", namespace))
-	log.Infoln(fmt.Sprintf("logs %s --heritage=kudo", namespace))
+	cmd := exec.Command(kubectlPath, "logs", fmt.Sprintf("-l heritage=kudo"), "-c", suites.DefaultContainerName, fmt.Sprintf("--namespace=%s", namespace))
+	log.Infoln(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Error(string(err.(*exec.ExitError).Stderr))
