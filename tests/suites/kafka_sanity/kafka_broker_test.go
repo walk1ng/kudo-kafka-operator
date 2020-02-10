@@ -208,6 +208,39 @@ var _ = Describe("KafkaTest", func() {
 			})
 		})
 
+		Context("Update LOG_RETENTION_HOURS param from default 168 to 200", func() {
+			kafkaClient := utils.NewKafkaClient(utils.KClient, &utils.KafkaClientConfiguration{
+				Namespace: utils.String(customNamespace),
+			})
+			It("LOG_RETENTION_HOURS should change from 168 to 200", func() {
+				currentParamVal, _ := utils.KClient.GetParamForKudoInstance(DefaultKudoKafkaInstance, customNamespace, "LOG_RETENTION_HOURS")
+				log.Printf("Current Parameter %s value is : %s ", "LOG_RETENTION_HOURS", currentParamVal)
+				err := utils.KClient.UpdateInstanceParams(DefaultKudoKafkaInstance, customNamespace, map[string]string{"LOG_RETENTION_HOURS": "200"})
+				Expect(err).To(BeNil())
+				err = utils.KClient.WaitForReadyStatus(DefaultKudoKafkaInstance, customNamespace, 240)
+				Expect(err).To(BeNil())
+				updatedParamVal := "200"
+				Expect(updatedParamVal).NotTo(Equal(currentParamVal))
+				Expect(utils.KClient.GetParamForKudoInstance(DefaultKudoKafkaInstance, customNamespace, "LOG_RETENTION_HOURS")).To(Equal("200"))
+			})
+			It("statefulset should have 3 replicas", func() {
+				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
+			})
+			It("should have 3 replicas with status READY", func() {
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, 240)
+				Expect(err).To(BeNil())
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, 240)
+				Expect(err).To(BeNil())
+				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
+			})
+			It("Check parameter value again", func() {
+				out, err := kafkaClient.ExecInPod(customNamespace, GetBrokerPodName(0), DefaultContainerName,
+					[]string{"grep", "log.retention.hours", "/var/lib/kafka/data/server.log"})
+				Expect(err).To(BeNil())
+				Expect(out).To(ContainSubstring(fmt.Sprintf("%s = %s", "log.retention.hours", "200")))
+			})
+		})
+
 	})
 })
 

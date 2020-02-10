@@ -40,6 +40,7 @@ func (c *KubernetesTestClient) GetParamForKudoInstance(name, namespace, param st
 	if len(instance.Spec.Parameters[param]) == 0 {
 		return c.GetParamForKudoFrameworkVersion(instance.Spec.OperatorVersion, namespace, param)
 	}
+	log.Info(fmt.Sprintf("Parameter %s Value is %s", param, instance.Spec.Parameters[param]))
 	return instance.Spec.Parameters[param], nil
 }
 
@@ -107,6 +108,39 @@ func updateInstancesCount(name, namespace string, count int) (string, error) {
 		return "", err
 	}
 	log.Infof("Updated the instances of %s/%s to %d", namespace, name, count)
+	return "updated", nil
+}
+
+func (c *KubernetesTestClient) UpdateInstanceParams(name, namespace string, mapParam map[string]string) error {
+	_, err := Retry(3, 0*time.Second, EMPTY_CONDITION, func() (string, error) {
+		return updateInstanceParams(name, namespace, mapParam)
+	})
+	return err
+}
+
+func updateInstanceParams(name, namespace string, mapParam map[string]string) (string, error) {
+	instancesClient := kudoClient.KudoV1beta1().Instances(namespace)
+	instance, err := instancesClient.Get(name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("error getting kudo instance in namespace %s for instance %s kubernetes client: %v", namespace, name, err)
+		return "", err
+	}
+
+	params := make(map[string]string)
+	for k, v := range instance.Spec.Parameters {
+		params[k] = v
+	}
+	for k, v := range mapParam {
+		params[k] = v
+	}
+	instance.Spec.Parameters = params
+
+	_, err = instancesClient.Update(instance)
+	if err != nil {
+		log.Errorf("error updating kudo instance in namespace %s for instance %s kubernetes client: %v", namespace, name, err)
+		return "", err
+	}
+	log.Infof("Updated the parameter(s) %s of %s/%s", mapParam, namespace, name)
 	return "updated", nil
 }
 
