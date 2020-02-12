@@ -9,6 +9,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	client "github.com/kudobuilder/test-tools/pkg/client"
+	testtools "github.com/kudobuilder/test-tools/pkg/kudo"
+
 	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -22,14 +25,15 @@ var (
 	repoRoot, _     = os.LookupEnv("REPO_ROOT")
 	resources       = "tests/suites/kafka_sanity/resources"
 	utilsContainer  = "alpine"
+	clienttools, _  = client.NewForConfig(os.Getenv("KUBECONFIG"))
 )
 
 var _ = Describe("KafkaTest", func() {
 	Describe("[Kafka Sanity Checks]", func() {
 		Context("default installation", func() {
 			It("service should have count 1", func() {
-				kudoInstances, _ := utils.KClient.GetInstancesInNamespace(customNamespace)
-				for _, instance := range kudoInstances.Items {
+				kudoInstances, _ := testtools.ListInstances(clienttools, customNamespace)
+				for _, instance := range kudoInstances {
 					log.Printf("%s kudo instance in namespace %s ", instance.Name, instance.Namespace)
 					log.Printf("%s kudo instance with parameters %v ", instance.Name, instance.Spec.Parameters)
 				}
@@ -160,7 +164,11 @@ var _ = Describe("KafkaTest", func() {
 				})
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName := fmt.Sprintf("test-topic-%s", topicSuffix)
-				err := utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 4)
+				kudoInstance, error := testtools.GetInstance(clienttools, DefaultKudoKafkaInstance, customNamespace)
+				Expect(error).To(BeNil())
+				err := kudoInstance.UpdateParameters(map[string]string{"BROKER_COUNT": "4"})
+				Expect(err).To(BeNil())
+				err = utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 4)
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 4, 240)
 				Expect(err).To(BeNil())
@@ -174,7 +182,7 @@ var _ = Describe("KafkaTest", func() {
 				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(3), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring(messageToTest))
-				err = utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 3)
+				err = kudoInstance.UpdateParameters(map[string]string{"BROKER_COUNT": "3"})
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, 240)
 				// in case the broker with id 3 was the active controller we should wait for the new active controller
@@ -189,13 +197,15 @@ var _ = Describe("KafkaTest", func() {
 
 		Context("change the instance BROKER_COUNT param from 3 to 1 and from 1 to 3", func() {
 			It("should have 3 replicas", func() {
-				err := utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 1)
+				kudoInstance, error := testtools.GetInstance(clienttools, DefaultKudoKafkaInstance, customNamespace)
+				Expect(error).To(BeNil())
+				err := kudoInstance.UpdateParameters(map[string]string{"BROKER_COUNT": "1"})
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, 240)
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, 240)
 				Expect(err).To(BeNil())
-				err = utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 3)
+				err = kudoInstance.UpdateParameters(map[string]string{"BROKER_COUNT": "3"})
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 3, 30)
 				Expect(err).To(BeNil())
@@ -215,7 +225,9 @@ var _ = Describe("KafkaTest", func() {
 			It("LOG_RETENTION_HOURS should change from 168 to 200", func() {
 				currentParamVal, _ := utils.KClient.GetParamForKudoInstance(DefaultKudoKafkaInstance, customNamespace, "LOG_RETENTION_HOURS")
 				log.Printf("Current Parameter %s value is : %s ", "LOG_RETENTION_HOURS", currentParamVal)
-				err := utils.KClient.UpdateInstanceParams(DefaultKudoKafkaInstance, customNamespace, map[string]string{"LOG_RETENTION_HOURS": "200"})
+				kudoInstance, error := testtools.GetInstance(clienttools, DefaultKudoKafkaInstance, customNamespace)
+				Expect(error).To(BeNil())
+				err := kudoInstance.UpdateParameters(map[string]string{"LOG_RETENTION_HOURS": "200"})
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForReadyStatus(DefaultKudoKafkaInstance, customNamespace, 240)
 				Expect(err).To(BeNil())

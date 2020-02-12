@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+	client "github.com/kudobuilder/test-tools/pkg/client"
+	testtools "github.com/kudobuilder/test-tools/pkg/kudo"
 )
 
 var (
@@ -17,6 +19,9 @@ var (
 	krb5Client      = &utils.KDCClient{
 		Namespace: customNamespace,
 	}
+	clienttools, e = client.NewForConfig(os.Getenv("KUBECONFIG"))
+	OperatorZk  = testtools.Operator{}
+	OperatorKafka  = testtools.Operator{}
 )
 
 var _ = Describe("KafkaTest", func() {
@@ -33,6 +38,10 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetServicesCount("kdc-service", customNamespace)).To(Equal(1))
 				utils.KClient.PrintLogsOfPod("kdc", "kdc", customNamespace)
 				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyabs(customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
+				// Kafka deployPlan is expected not to be completed as it has a dependency over "base64-kafka-keytab-secret" to be created by KDC client
+				// Checking if deployplan completes now.
+				err := OperatorKafka.Instance.WaitForPlanComplete("deploy")
+				Expect(err).To(BeNil())
 			})
 			It("Kafka and Zookeeper statefulset should have 3 replicas with status READY", func() {
 				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, 240)
@@ -70,26 +79,48 @@ var _ = BeforeSuite(func() {
 	utils.KClient.CreateNamespace(customNamespace, false)
 	utils.KClient.CreateTLSCertSecret(customNamespace, "kafka-tls", "Kafka")
 	Expect(krb5Client.Deploy()).To(BeNil())
-	utils.InstallKudoOperator(customNamespace, utils.ZK_INSTANCE, utils.ZK_FRAMEWORK_DIR_ENV, map[string]string{
-		"MEMORY": "256Mi",
-		"CPUS":   "0.25",
-	})
+	OperatorZk, e = testtools.InstallOperator(os.Getenv(utils.ZK_FRAMEWORK_DIR_ENV)).
+			WithNamespace(customNamespace).
+			WithInstance(utils.ZK_INSTANCE).
+			WithParameters(map[string]string{
+				"MEMORY": "256Mi",
+				"CPUS":   "0.25",
+			}).
+			Do(clienttools)
+	Expect(e).To(BeNil())
+	err := OperatorZk.Instance.WaitForPlanInProgress("deploy")
+	Expect(err).To(BeNil())
+	err = OperatorZk.Instance.WaitForPlanComplete("deploy")
+	Expect(err).To(BeNil())
 	utils.KClient.WaitForStatefulSetCount(DefaultZkStatefulSetName, customNamespace, 3, 30)
-	utils.InstallKudoOperator(customNamespace, utils.KAFKA_INSTANCE, utils.KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
-		"BROKER_MEM":                   "1Gi",
-		"BROKER_CPUS":                  "0.25",
-		"TLS_SECRET_NAME":              "kafka-tls",
-		"TRANSPORT_ENCRYPTION_ENABLED": "true",
-		"KERBEROS_ENABLED":             "true",
-		"KERBEROS_KDC_HOSTNAME":        "kdc-service",
-		"KERBEROS_KDC_PORT":            "2500",
-		"KERBEROS_KEYTAB_SECRET":       "base64-kafka-keytab-secret",
-	})
+	OperatorKafka, e = testtools.InstallOperator(os.Getenv(utils.KAFKA_FRAMEWORK_DIR_ENV)).
+		WithNamespace(customNamespace).
+		WithInstance(utils.KAFKA_INSTANCE).
+		WithParameters(map[string]string{
+			"BROKER_MEM":                   "1Gi",
+			"BROKER_CPUS":                  "0.25",
+			"TLS_SECRET_NAME":              "kafka-tls",
+			"TRANSPORT_ENCRYPTION_ENABLED": "true",
+			"KERBEROS_ENABLED":             "true",
+			"KERBEROS_KDC_HOSTNAME":        "kdc-service",
+			"KERBEROS_KDC_PORT":            "2500",
+			"KERBEROS_KEYTAB_SECRET":       "base64-kafka-keytab-secret",
+		}).
+		Do(clienttools)
+	Expect(e).To(BeNil())
+	err = OperatorKafka.Instance.WaitForPlanInProgress("deploy")
+	Expect(err).To(BeNil())
 	utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 3, 30)
 })
 
 var _ = AfterSuite(func() {
-	utils.TearDown(customNamespace)
+	//utils.TearDown(customNamespace)
+	err := OperatorZk.Uninstall()
+	Expect(err).To(BeNil())
+	utils.KClient.WaitForStatefulSetCount(DefaultZkStatefulSetName, customNamespace, 0, 30)
+	err = OperatorKafka.Uninstall()
+	Expect(err).To(BeNil())
+	utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 0, 30)
 	Expect(krb5Client.TearDown()).To(BeNil())
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 	utils.KClient.DeleteNamespace(customNamespace)
