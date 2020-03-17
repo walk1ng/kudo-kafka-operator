@@ -21,6 +21,13 @@ docker run --rm \
 	${DOCKER_IMAGE} \
 	bash -c ${kafka_repo_root}/images/kafka/kafka-utils/run-tests.sh
 
+# run KUDO Kafka connectors setup util unit tests
+docker run --rm \
+	-w ${kafka_repo_root}/images/kafka/kafka-connectors-setup \
+	-v ${kafka_repo_root}:${kafka_repo_root} \
+	${DOCKER_IMAGE} \
+	bash -c ${kafka_repo_root}/images/kafka/kafka-connectors-setup/run-tests.sh
+
 # run KUDO Kafka integration tests
 docker run --rm \
 	-w ${kafka_repo_root}/tests \
