@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	defaultKafkaRetry         = 3
-	defaultKafkaRetryInterval = 1 * time.Second
-	defaultNamespace          = "default"
-	defaultInstanceName       = "kafka"
-	defaultKerberosEnabled    = false
+	defaultKafkaRetry               = 3
+	defaultKafkaRetryInterval       = 1 * time.Second
+	defaultNamespace                = "default"
+	defaultInstanceName             = "kafka"
+	DefaultStatefulReadyWaitSeconds = 300 * time.Second
 )
 
 type KafkaClient struct {
@@ -96,7 +96,7 @@ func (c *KafkaClient) writeInTopic(podName, container, topicName, message string
 		logrus.Error(fmt.Sprintf("Error getting BROKER_PORT for kafka: %v\n", err))
 		return "", err
 	}
-	command := []string{}
+	var command []string
 	if c.conf.KerberosEnabled {
 		command = []string{
 			"bash", "-c", c.getClientConfigurationCommand() + fmt.Sprintf("echo '%s' | /opt/kafka/bin/kafka-console-producer.sh $KAFKA_PRODUCER_CONFIG_OPTIONS --broker-list "+
@@ -119,13 +119,7 @@ func (c *KafkaClient) ReadFromTopic(podName, container, topicName, message strin
 }
 
 func (c *KafkaClient) readFromTopic(podName, container, topicName string) (string, error) {
-	var port string
-	var err error
-	if c.conf.TLSEnabled {
-		port, err = c.kClient.GetParamForKudoInstance(*c.conf.InstanceName, *c.conf.Namespace, "BROKER_PORT_TLS")
-	} else {
-		port, err = c.kClient.GetParamForKudoInstance(*c.conf.InstanceName, *c.conf.Namespace, "BROKER_PORT")
-	}
+	port, err := c.GetPortForInstance()
 	if err != nil {
 		logrus.Error(fmt.Sprintf("Error getting BROKER_PORT for kafka: %v\n", err))
 		return "", err
@@ -152,11 +146,29 @@ func (c *KafkaClient) CreateTopic(podName, container, topicName, replicationAssi
 	})
 }
 
+func (c *KafkaClient) DescribeTopic(podName, container, topicName string) (string, error) {
+	return c.describeTopic(podName, container, topicName)
+}
+
 func (c *KafkaClient) createTopic(podName, container, topicName, replicationAssignment string) (string, error) {
-	command := []string{
-		"bash", "-c", fmt.Sprintf("/opt/kafka/bin/kafka-topics.sh --create --zookeeper ${KAFKA_ZK_URI} "+
-			"--topic %s --replica-assignment %s", topicName, replicationAssignment),
+	kafkaArgs := fmt.Sprintf("/opt/kafka/bin/kafka-topics.sh --create --zookeeper ${KAFKA_ZK_URI} "+
+		"--topic %s", topicName)
+	command := []string{"bash", "-c"}
+	if strings.Contains(replicationAssignment, ":") {
+		kafkaArgs = fmt.Sprintf("%s --replica-assignment %s", kafkaArgs, replicationAssignment)
+	} else {
+		kafkaArgs = fmt.Sprintf("%s --partitions 1 --replication-factor 1", kafkaArgs)
 	}
+	command = append(command, kafkaArgs)
+	logrus.Println(command)
+	return c.ExecInPod(*c.conf.Namespace, podName, container, command)
+}
+
+func (c *KafkaClient) describeTopic(podName, container, topicName string) (string, error) {
+	kafkaArgs := fmt.Sprintf("/opt/kafka/bin/kafka-topics.sh --describe --zookeeper ${KAFKA_ZK_URI} "+
+		"--topic %s ", topicName)
+	command := []string{"bash", "-c"}
+	command = append(command, kafkaArgs)
 	logrus.Println(command)
 	return c.ExecInPod(*c.conf.Namespace, podName, container, command)
 }
@@ -235,6 +247,20 @@ func (c *KafkaClient) ExecInPod(namespace, name, container string, commands []st
 	logrus.Infoln(stdoutString)
 	return stdoutString, nil
 }
+func (c *KafkaClient) GetPortForInstance() (string, error) {
+	if c.conf.TLSEnabled {
+		return c.kClient.GetParamForKudoInstance(*c.conf.InstanceName, *c.conf.Namespace, "BROKER_PORT_TLS")
+	} else {
+		return c.kClient.GetParamForKudoInstance(*c.conf.InstanceName, *c.conf.Namespace, "BROKER_PORT")
+	}
+}
+func (c *KafkaClient) CheckForValueInFile(expectedValue, filePath, ns, pod, containerName string) (string, error) {
+	return Retry(*c.conf.Retry, *c.conf.RetryInterval, expectedValue, func() (string, error) {
+		return c.ExecInPod(ns, pod, containerName,
+			[]string{"grep", expectedValue, filePath})
+	})
+
+}
 
 func InstallKudoOperator(namespace, name, operatorPathEnv string, parameters map[string]string) {
 	validateFrameworkEnvVariable(operatorPathEnv)
@@ -250,13 +276,13 @@ func DeletePVCs(containsString string) error {
 	return KClient.DeletePVCs(containsString)
 }
 
-func GetKafkaKeyabs(namespace string) []string {
-	return []string{
-		"livenessProbe/kafka-kafka-0.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
-		"livenessProbe/kafka-kafka-1.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
-		"livenessProbe/kafka-kafka-2.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
-		"kafka/kafka-kafka-0.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
-		"kafka/kafka-kafka-1.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
-		"kafka/kafka-kafka-2.kafka-svc." + namespace + ".svc.cluster.local@LOCAL",
+func GetKafkaKeyTabs(brokers int, namespace string) []string {
+	keyTabs := []string{}
+	for i := 0; i < brokers; i++ {
+		keyTabs = append(keyTabs,
+			fmt.Sprintf("livenessProbe/kafka-kafka-%d.kafka-svc.%s.svc.cluster.local@LOCAL", i, namespace),
+			fmt.Sprintf("kafka/kafka-kafka-%d.kafka-svc.%s.svc.cluster.local@LOCAL", i, namespace),
+		)
 	}
+	return keyTabs
 }

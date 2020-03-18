@@ -11,4 +11,3 @@ func GetRandString(length int) (string, error) {
 }
 
 func String(s string) *string { return &s }
-func Int(i int) *int          { return &i }

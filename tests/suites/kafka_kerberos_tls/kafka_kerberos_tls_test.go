@@ -17,6 +17,8 @@ var (
 	krb5Client      = &utils.KDCClient{
 		Namespace: customNamespace,
 	}
+	zkNodeCount      = 1
+	kafkaBrokerCount = 1
 )
 
 var _ = Describe("KafkaTest", func() {
@@ -32,31 +34,30 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.CheckIfPodExists("kdc", customNamespace)).To(Equal(true))
 				Expect(utils.KClient.GetServicesCount("kdc-service", customNamespace)).To(Equal(1))
 				utils.KClient.PrintLogsOfPod("kdc", "kdc", customNamespace)
-				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyabs(customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
+				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyTabs(1, customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
 			})
-			It("Kafka and Zookeeper statefulset should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, 240)
+			It("Kafka and Zookeeper statefulset should have 1 replica each with status READY", func() {
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, zkNodeCount, utils.DefaultStatefulReadyWaitSeconds)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, 300)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, kafkaBrokerCount, utils.DefaultStatefulReadyWaitSeconds)
 				Expect(err).To(BeNil())
-				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
 			It("verify the SSL listener", func() {
-				output, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-2", DefaultContainerName,
+				output, err := kafkaClient.ExecInPod(customNamespace, "kafka-kafka-0", DefaultContainerName,
 					[]string{"grep", "ListenerName", "/var/lib/kafka/data/server.log"})
 				Expect(err).To(BeNil())
 				Expect(output).To(ContainSubstring("ListenerName(INTERNAL),SASL_SSL"))
 			})
-			It("write and read a message with replication 3 in broker-0", func() {
+			It("write and read a message with replication 1 in broker-0", func() {
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName := fmt.Sprintf("test-topic-%s", topicSuffix)
-				out, err := kafkaClient.CreateTopic(GetBrokerPodName(1), DefaultContainerName, topicName, "1:0:2")
+				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "0")
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring("Created topic"))
 				messageToTest := "KerberosTLSMessage"
-				_, err = kafkaClient.WriteInTopic(GetBrokerPodName(1), DefaultContainerName, topicName, messageToTest)
+				_, err = kafkaClient.WriteInTopic(GetBrokerPodName(0), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
-				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(1), DefaultContainerName, topicName, messageToTest)
+				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(0), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring(messageToTest))
 			})
@@ -70,22 +71,7 @@ var _ = BeforeSuite(func() {
 	utils.KClient.CreateNamespace(customNamespace, false)
 	utils.KClient.CreateTLSCertSecret(customNamespace, "kafka-tls", "Kafka")
 	Expect(krb5Client.Deploy()).To(BeNil())
-	utils.InstallKudoOperator(customNamespace, utils.ZK_INSTANCE, utils.ZK_FRAMEWORK_DIR_ENV, map[string]string{
-		"MEMORY": "256Mi",
-		"CPUS":   "0.25",
-	})
-	utils.KClient.WaitForStatefulSetCount(DefaultZkStatefulSetName, customNamespace, 3, 30)
-	utils.InstallKudoOperator(customNamespace, utils.KAFKA_INSTANCE, utils.KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
-		"BROKER_MEM":                   "1Gi",
-		"BROKER_CPUS":                  "0.25",
-		"TLS_SECRET_NAME":              "kafka-tls",
-		"TRANSPORT_ENCRYPTION_ENABLED": "true",
-		"KERBEROS_ENABLED":             "true",
-		"KERBEROS_KDC_HOSTNAME":        "kdc-service",
-		"KERBEROS_KDC_PORT":            "2500",
-		"KERBEROS_KEYTAB_SECRET":       "base64-kafka-keytab-secret",
-	})
-	utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 3, 30)
+	utils.SetupWithKerberos(customNamespace, true)
 })
 
 var _ = AfterSuite(func() {

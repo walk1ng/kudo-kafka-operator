@@ -27,29 +27,30 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.CheckIfPodExists("kdc", customNamespace)).To(Equal(true))
 				Expect(utils.KClient.GetServicesCount("kdc-service", customNamespace)).To(Equal(1))
 				utils.KClient.PrintLogsOfPod("kdc", "kdc", customNamespace)
-				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyabs(customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
+				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyTabs(1, customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
 			})
-			It("Kafka and Zookeeper statefulset should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, 240)
+			It("Kafka and Zookeeper statefulset should have 1 replicas with status READY", func() {
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, 300)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
 				Expect(err).To(BeNil())
-				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
+				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
-			It("write and read a message with replication 3 in broker-0", func() {
+			It("write and read a message with replication 1 in broker-0", func() {
 				kafkaClient := utils.NewKafkaClient(utils.KClient, &utils.KafkaClientConfiguration{
 					Namespace:       utils.String(customNamespace),
 					KerberosEnabled: true,
 				})
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName := fmt.Sprintf("test-topic-%s", topicSuffix)
-				out, err := kafkaClient.CreateTopic(GetBrokerPodName(1), DefaultContainerName, topicName, "1:0:2")
+				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "1")
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring("Created topic"))
+				kafkaClient.DescribeTopic(GetBrokerPodName(0), DefaultContainerName, topicName)
 				messageToTest := "KerberosMessage"
-				_, err = kafkaClient.WriteInTopic(GetBrokerPodName(1), DefaultContainerName, topicName, messageToTest)
+				_, err = kafkaClient.WriteInTopic(GetBrokerPodName(0), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
-				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(1), DefaultContainerName, topicName, messageToTest)
+				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(0), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring(messageToTest))
 			})
@@ -62,7 +63,7 @@ var _ = BeforeSuite(func() {
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
 	utils.KClient.CreateNamespace(customNamespace, false)
 	Expect(krb5Client.Deploy()).To(BeNil())
-	utils.SetupWithKerberos(customNamespace)
+	utils.SetupWithKerberos(customNamespace, false)
 })
 
 var _ = AfterSuite(func() {

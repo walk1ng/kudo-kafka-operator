@@ -48,7 +48,7 @@ func (c *KubernetesTestClient) GetParamForKudoFrameworkVersion(ref corev1.Object
 	operatorVersion, err := kudoClient.KudoV1beta1().OperatorVersions(namespace).Get(ref.Name, metav1.GetOptions{})
 
 	if err != nil {
-		log.Errorf("error getting kudo opeartor version in namespace kubernetes client: %v", err)
+		log.Errorf("error getting kudo operator version in namespace kubernetes client: %v", err)
 		return "", err
 	}
 
@@ -71,7 +71,7 @@ func (c *KubernetesTestClient) GetOperatorVersionForKudoInstance(name, namespace
 	operatorVersion, err := kudoClient.KudoV1beta1().OperatorVersions(namespace).Get(instance.Spec.OperatorVersion.Name, metav1.GetOptions{})
 
 	if err != nil {
-		log.Errorf("error getting kudo opeartor version in namespace kubernetes client: %v", err)
+		log.Errorf("error getting kudo operator version in namespace kubernetes client: %v", err)
 		return "", err
 	}
 
@@ -99,8 +99,10 @@ func updateInstancesCount(name, namespace string, count int) (string, error) {
 	for k, v := range instance.Spec.Parameters {
 		params[k] = v
 	}
+	log.Printf("Instance: %+v\n", instance)
 	params["BROKER_COUNT"] = strconv.Itoa(count)
 	instance.Spec.Parameters = params
+	instance.Spec.PlanExecution.PlanName = "deploy"
 
 	_, err = instancesClient.Update(instance)
 	if err != nil {
@@ -134,6 +136,7 @@ func updateInstanceParams(name, namespace string, mapParam map[string]string) (s
 		params[k] = v
 	}
 	instance.Spec.Parameters = params
+	instance.Spec.PlanExecution.PlanName = "deploy"
 
 	_, err = instancesClient.Update(instance)
 	if err != nil {
@@ -207,18 +210,18 @@ func (c *KubernetesTestClient) DeleteInstance(namespace, name string) {
 	log.Info(fmt.Sprintf("Response: %s", string(out)))
 }
 
-func (c *KubernetesTestClient) WaitForReadyStatus(name, namespace string, timeoutSeconds time.Duration) error {
+func (c *KubernetesTestClient) WaitForStatus(name, namespace string, expectedStatus v1beta1.ExecutionStatus, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
 	tick := time.Tick(2 * time.Second)
 	for {
 		select {
 		case <-timeout:
 			c.PrintLogsOfNamespace(namespace)
-			return fmt.Errorf("Timeout while waiting for %s/%s plan status to be Complete", namespace, name)
+			return fmt.Errorf("timeout while waiting for %s/%s plan status to be Complete", namespace, name)
 		case <-tick:
 			status, _ := c.GetPlanStatusForInstance(name, namespace)
 			log.Info(fmt.Sprintf("Got status %s of instance %s in namespace %s", status, name, namespace))
-			if status == v1beta1.ExecutionComplete {
+			if status == expectedStatus {
 				return nil
 			}
 		}

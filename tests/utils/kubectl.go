@@ -14,11 +14,6 @@ const (
 	ZK_FRAMEWORK_DIR_ENV    = "ZK_FRAMEWORK_DIR"
 )
 
-var (
-	kafkaFrameworkDir = os.Getenv(KAFKA_FRAMEWORK_DIR_ENV)
-	zkFrameworkDir    = os.Getenv(ZK_FRAMEWORK_DIR_ENV)
-)
-
 type environment struct {
 	kubectlPath string
 	namespace   string

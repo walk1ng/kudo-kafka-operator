@@ -33,7 +33,7 @@ func (k *KDCClient) Deploy() error {
 		return KClient.WaitForPod("kdc", k.Namespace, 240)
 	}
 
-	return fmt.Errorf("Environment variable REPO_ROOT is not set!")
+	return fmt.Errorf("environment variable REPO_ROOT is not set!")
 }
 
 // TearDown Use it to destroy the kdc server
@@ -45,7 +45,7 @@ func (k *KDCClient) TearDown() error {
 		return nil
 	}
 
-	return fmt.Errorf("Environment variable REPO_ROOT is not set!")
+	return fmt.Errorf("environment variable REPO_ROOT is not set!")
 }
 
 // CreateKeytabSecret Pass it string array of principals and it will create a keytab secret

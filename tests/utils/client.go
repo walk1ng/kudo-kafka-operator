@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/apps/v1beta2"
+	apps_v1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +89,7 @@ func (c *KubernetesTestClient) WaitForPod(name, namespace string, timeoutSeconds
 		select {
 		case <-timeout:
 			c.PrintLogsOfNamespace(namespace)
-			return fmt.Errorf("Timeout while waiting for pod [%s/%s] count to be 1", namespace, name)
+			return fmt.Errorf("timeout while waiting for pod [%s/%s] count to be 1", namespace, name)
 		case <-tick:
 			if KClient.CheckIfPodExists(name, namespace) {
 				return nil
@@ -104,7 +105,7 @@ func (c *KubernetesTestClient) WaitForContainerToBeReady(containerName, podName,
 		select {
 		case <-timeout:
 			c.PrintLogsOfNamespace(namespace)
-			return fmt.Errorf("Timeout while waiting for container [%s/%s/%s] status to be READY", namespace, podName, containerName)
+			return fmt.Errorf("timeout while waiting for container [%s/%s/%s] status to be READY", namespace, podName, containerName)
 		case <-tick:
 			pod, err := KClient.GetPod(podName, namespace)
 			if kerrors.IsNotFound(err) {
@@ -129,7 +130,7 @@ func (c *KubernetesTestClient) WaitForContainerToBeReady(containerName, podName,
 
 func (c *KubernetesTestClient) WaitForStatefulSetCount(name, namespace string, count int, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(500 * time.Millisecond)
+	tick := time.Tick(2 * time.Second)
 	for {
 		select {
 		case <-timeout:
@@ -179,25 +180,25 @@ func (c *KubernetesTestClient) GetPod(name, namespace string) (*v1.Pod, error) {
 func (c *KubernetesTestClient) GetStatefulSetCount(name, namespace string) int {
 	statefulSet := c.GetStatefulSet(name, namespace)
 	if statefulSet == nil {
-		log.Warningf("Found 0 replicas for statefulset %s in namespace %s .", name, namespace)
+		log.Warningf("Found 0 replicas for statefulset %s in namespace %s.", name, namespace)
 		return 0
 	}
-	log.Infof("Found %d  replicas of the %s in %s namespace", *statefulSet.Spec.Replicas, name, namespace)
+	log.Infof("Found %d replicas of the %s in %s namespace", *statefulSet.Spec.Replicas, name, namespace)
 	return int(*statefulSet.Spec.Replicas)
 }
 
 func (c *KubernetesTestClient) GetStatefulSetReadyReplicasCount(name, namespace string) int {
 	statefulSet := c.GetStatefulSet(name, namespace)
 	if statefulSet == nil {
-		log.Warningf("Found 0 replicas for statefulset %s in %s namespace.", name, namespace)
+		log.Warningf("Found 0 ready replicas for statefulset %s in namespace %s.", name, namespace)
 		return 0
 	}
 	log.Infof("Found %d/%d ready replicas of the %s in %s namespace.", statefulSet.Status.ReadyReplicas, *statefulSet.Spec.Replicas, name, namespace)
 	return int(statefulSet.Status.ReadyReplicas)
 }
 
-func (c *KubernetesTestClient) GetStatefulSet(name, namespace string) *v1beta2.StatefulSet {
-	statefulSet, err := c.AppsV1beta2().StatefulSets(namespace).Get(name, metav1.GetOptions{})
+func (c *KubernetesTestClient) GetStatefulSet(name, namespace string) *apps_v1.StatefulSet {
+	statefulSet, err := c.AppsV1().StatefulSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		log.Warningf("%v", err)
 		return nil
@@ -237,25 +238,36 @@ func Setup(namespace string) {
 		"MEMORY": "256Mi",
 		"CPUS":   "0.25",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 30)
+	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 300)
 	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
-		"BROKER_MEM":      "1Gi",
+		"BROKER_MEM":      "512Mi",
 		"BROKER_CPUS":     "0.25",
 		"METRICS_ENABLED": "true",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 30)
+	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 300)
 }
 
-func SetupWithKerberos(namespace string) {
-	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{})
-	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 30)
-	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
-		"KERBEROS_ENABLED":       "true",
-		"KERBEROS_KDC_HOSTNAME":  "kdc-service",
-		"KERBEROS_KDC_PORT":      "2500",
-		"KERBEROS_KEYTAB_SECRET": "base64-kafka-keytab-secret",
+func SetupWithKerberos(namespace string, tlsEnabled bool) {
+	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{
+		"MEMORY":     "256Mi",
+		"CPUS":       "0.25",
+		"NODE_COUNT": "1",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 30)
+	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 1, 30)
+	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
+		"KERBEROS_ENABLED":                 "true",
+		"KERBEROS_KDC_HOSTNAME":            "kdc-service",
+		"KERBEROS_KDC_PORT":                "2500",
+		"KERBEROS_KEYTAB_SECRET":           "base64-kafka-keytab-secret",
+		"BROKER_MEM":                       "512Mi",
+		"BROKER_CPUS":                      "0.25",
+		"BROKER_COUNT":                     "1",
+		"ZOOKEEPER_URI":                    "zookeeper-instance-zookeeper-0.zookeeper-instance-hs:2181",
+		"TRANSPORT_ENCRYPTION_ENABLED":     strconv.FormatBool(tlsEnabled),
+		"OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+		"USE_AUTO_TLS_CERTIFICATE":         "true",
+	})
+	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 1, 30)
 }
 
 func TearDown(namespace string) {
