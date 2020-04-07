@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	EMPTY_CONDITION = ""
-	KAFKA_INSTANCE  = "kafka"
-	ZK_INSTANCE     = "zookeeper-instance"
+	EmptyCondition = ""
+	KafkaInstance  = "kafka"
+	ZkInstance     = "zookeeper-instance"
 )
 
 var (
@@ -68,7 +68,7 @@ func GetKubernetesClient() (*kubernetes.Clientset, error) {
 }
 
 func (c *KubernetesTestClient) createSecret(name string, data []string, namespace string) {
-	c.CoreV1().Secrets(namespace).Create(&v1.Secret{
+	_, err := c.CoreV1().Secrets(namespace).Create(&v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -76,7 +76,11 @@ func (c *KubernetesTestClient) createSecret(name string, data []string, namespac
 			data[0]: data[1],
 		},
 	})
-	_, err := c.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		log.Warningf("%v", err)
+		return
+	}
+	_, err = c.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		log.Warningf("%v", err)
 	}
@@ -84,7 +88,7 @@ func (c *KubernetesTestClient) createSecret(name string, data []string, namespac
 
 func (c *KubernetesTestClient) WaitForPod(name, namespace string, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(500 * time.Millisecond)
+	tick := time.Tick(500 * time.Millisecond) //nolint
 	for {
 		select {
 		case <-timeout:
@@ -100,7 +104,7 @@ func (c *KubernetesTestClient) WaitForPod(name, namespace string, timeoutSeconds
 
 func (c *KubernetesTestClient) WaitForContainerToBeReady(containerName, podName, namespace string, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(500 * time.Millisecond)
+	tick := time.Tick(500 * time.Millisecond) //nolint
 	for {
 		select {
 		case <-timeout:
@@ -130,12 +134,12 @@ func (c *KubernetesTestClient) WaitForContainerToBeReady(containerName, podName,
 
 func (c *KubernetesTestClient) WaitForStatefulSetCount(name, namespace string, count int, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(2 * time.Second)
+	tick := time.Tick(2 * time.Second) //nolint
 	for {
 		select {
 		case <-timeout:
 			c.PrintLogsOfNamespace(namespace)
-			return errors.New(fmt.Sprintf("Timeout while waiting for statefulset [%s/%s] count to be %d", namespace, name, count))
+			return fmt.Errorf("Timeout while waiting for statefulset [%s/%s] count to be %d", namespace, name, count)
 		case <-tick:
 			if count == KClient.GetStatefulSetCount(name, namespace) {
 				return nil
@@ -146,12 +150,12 @@ func (c *KubernetesTestClient) WaitForStatefulSetCount(name, namespace string, c
 
 func (c *KubernetesTestClient) WaitForStatefulSetReadyReplicasCount(name, namespace string, count int, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(2 * time.Second)
+	tick := time.Tick(2 * time.Second) //nolint
 	for {
 		select {
 		case <-timeout:
 			c.PrintLogsOfNamespace(namespace)
-			return errors.New(fmt.Sprintf("Timeout while waiting for statefulset [%s/%s] ready replicas count to be %d", namespace, name, count))
+			return fmt.Errorf("Timeout while waiting for statefulset [%s/%s] ready replicas count to be %d", namespace, name, count)
 		case <-tick:
 			if count == KClient.GetStatefulSetReadyReplicasCount(name, namespace) {
 				return nil
@@ -234,27 +238,40 @@ func (c *KubernetesTestClient) GetServicesCount(name string, namespace string) i
 }
 
 func Setup(namespace string) {
-	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{
+	InstallKudoOperator(namespace, ZkInstance, ZkFrameworkDirEnv, map[string]string{
 		"MEMORY": "256Mi",
 		"CPUS":   "0.25",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 300)
-	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
+	err := KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 3, 300)
+	if err != nil {
+		log.Errorf("error waiting for install of operator %s error: %v", ZkInstance, err)
+		return
+	}
+	InstallKudoOperator(namespace, KafkaInstance, KafkaFrameworkDirEnv, map[string]string{
 		"BROKER_MEM":      "512Mi",
 		"BROKER_CPUS":     "0.25",
 		"METRICS_ENABLED": "true",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 300)
+	err = KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 3, 300)
+	if err != nil {
+		log.Errorf("error waiting for install of operator %s error: %v", suites.DefaultKafkaStatefulSetName, err)
+		return
+	}
 }
 
 func SetupWithKerberos(namespace string, tlsEnabled bool) {
-	InstallKudoOperator(namespace, ZK_INSTANCE, ZK_FRAMEWORK_DIR_ENV, map[string]string{
+	InstallKudoOperator(namespace, ZkInstance, ZkFrameworkDirEnv, map[string]string{
 		"MEMORY":     "256Mi",
 		"CPUS":       "0.25",
 		"NODE_COUNT": "1",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 1, 30)
-	InstallKudoOperator(namespace, KAFKA_INSTANCE, KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
+	err := KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, namespace, 1, 30)
+	if err != nil {
+		log.Errorf("error waiting for install of operator %s error: %v", suites.DefaultZkStatefulSetName, err)
+		return
+	}
+
+	InstallKudoOperator(namespace, KafkaInstance, KafkaFrameworkDirEnv, map[string]string{
 		"KERBEROS_ENABLED":                 "true",
 		"KERBEROS_KDC_HOSTNAME":            "kdc-service",
 		"KERBEROS_KDC_PORT":                "2500",
@@ -267,14 +284,25 @@ func SetupWithKerberos(namespace string, tlsEnabled bool) {
 		"OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
 		"USE_AUTO_TLS_CERTIFICATE":         "true",
 	})
-	KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 1, 30)
+	err = KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, namespace, 1, 30)
+	if err != nil {
+		log.Errorf("error waiting for install of operator %s error: %v", suites.DefaultKafkaStatefulSetName, err)
+		return
+	}
 }
 
 func TearDown(namespace string) {
-	DeleteInstances(namespace, ZK_INSTANCE)
-	KClient.WaitForStatefulSetCount(fmt.Sprintf("%s-%s", ZK_INSTANCE, ZK_INSTANCE), namespace, 0, 30)
-	DeleteInstances(namespace, KAFKA_INSTANCE)
-	KClient.WaitForStatefulSetCount(fmt.Sprintf("%s-%s", KAFKA_INSTANCE, KAFKA_INSTANCE), namespace, 0, 30)
+	DeleteInstances(namespace, ZkInstance)
+	err := KClient.WaitForStatefulSetCount(fmt.Sprintf("%s-%s", ZkInstance, ZkInstance), namespace, 0, 30)
+	if err != nil {
+		log.Errorf("error tearing down operator %s error: %v", ZkInstance, err)
+	}
+
+	DeleteInstances(namespace, KafkaInstance)
+	err = KClient.WaitForStatefulSetCount(fmt.Sprintf("%s-%s", KafkaInstance, KafkaInstance), namespace, 0, 30)
+	if err != nil {
+		log.Errorf("error tearing down operator %s error: %v", KafkaInstance, err)
+	}
 }
 
 func Retry(attempts int, sleep time.Duration, condition string, f func() (string, error)) (resp string, err error) {
@@ -343,6 +371,9 @@ func (c *KubernetesTestClient) ExecInPod(namespace string, podName string, conta
 		Tty:               true,
 		TerminalSizeQueue: nil,
 	})
+	if err != nil {
+		return "", err
+	}
 
 	if stdErr.Len() > 0 {
 		stdErrString := stdErr.String()

@@ -1,4 +1,4 @@
-package kafka_kerberos
+package kafkakerberos
 
 import (
 	"fmt"
@@ -6,10 +6,11 @@ import (
 
 	. "github.com/mesosphere/kudo-kafka-operator/tests/suites"
 
-	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+
+	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 )
 
 var (
@@ -37,9 +38,9 @@ var _ = Describe("KafkaTest", func() {
 				Expect(krb5Client.CreateKeytabSecret(utils.GetKafkaKeyTabs(1, customNamespace), "kafka", "base64-kafka-keytab-secret")).To(BeNil())
 			})
 			It("Kafka and Zookeeper statefulset should have 1 replica each with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, zkNodeCount, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, zkNodeCount, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, kafkaBrokerCount, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, kafkaBrokerCount, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 			})
 			It("verify the SSL listener", func() {
@@ -68,8 +69,10 @@ var _ = Describe("KafkaTest", func() {
 var _ = BeforeSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.CreateNamespace(customNamespace, false)
-	utils.KClient.CreateTLSCertSecret(customNamespace, "kafka-tls", "Kafka")
+	_, err := utils.KClient.CreateNamespace(customNamespace, false)
+	Expect(err).To(BeNil())
+	_, err = utils.KClient.CreateTLSCertSecret(customNamespace, "kafka-tls", "Kafka")
+	Expect(err).To(BeNil())
 	Expect(krb5Client.Deploy()).To(BeNil())
 	utils.SetupWithKerberos(customNamespace, true)
 })
@@ -78,7 +81,8 @@ var _ = AfterSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(krb5Client.TearDown()).To(BeNil())
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.DeleteNamespace(customNamespace)
+	err := utils.KClient.DeleteNamespace(customNamespace)
+	Expect(err).To(BeNil())
 })
 
 func TestService(t *testing.T) {

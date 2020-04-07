@@ -1,4 +1,4 @@
-package kafka_sanity
+package kafkasanity
 
 import (
 	"fmt"
@@ -40,9 +40,9 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
 			It("statefulset should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
@@ -50,14 +50,17 @@ var _ = Describe("KafkaTest", func() {
 				kafkaClient := utils.NewKafkaClient(utils.KClient, &utils.KafkaClientConfiguration{
 					Namespace: utils.String(customNamespace),
 				})
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(1), DefaultContainerName, 100)
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(2), DefaultContainerName, 100)
+				err := kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(1), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(2), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName = fmt.Sprintf("test-topic-%s", topicSuffix)
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "0")
 				Expect(err).To(BeNil())
@@ -76,7 +79,7 @@ var _ = Describe("KafkaTest", func() {
 				Namespace: utils.String(customNamespace),
 			})
 			It("should have dns resolution using service", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				output, err := kafkaClient.ExecInPod(customNamespace, utilsContainer, utilsContainer,
 					[]string{"nslookup", fmt.Sprintf("kafka-svc.%s.svc.cluster.local", customNamespace)})
@@ -111,7 +114,7 @@ var _ = Describe("KafkaTest", func() {
 				Namespace: utils.String(customNamespace),
 			})
 			It("verify that access mode is ReadWriteOnce", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				sts, err := utils.KClient.AppsV1().StatefulSets(customNamespace).Get(DefaultKafkaStatefulSetName, metav1.GetOptions{})
 				Expect(err).To(BeNil())
@@ -148,9 +151,9 @@ var _ = Describe("KafkaTest", func() {
 
 		Context("scale and write/read in topics", func() {
 			It("statefulset should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
@@ -162,9 +165,10 @@ var _ = Describe("KafkaTest", func() {
 				topicName := fmt.Sprintf("test-topic-%s", topicSuffix)
 				err := utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 4)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 4, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 4, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(3), DefaultContainerName, 100)
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(3), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
 				out, err := kafkaClient.CreateTopic(GetBrokerPodName(3), DefaultContainerName, topicName, "0:1:2")
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring("Created topic"))
@@ -177,10 +181,14 @@ var _ = Describe("KafkaTest", func() {
 				err = utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 3)
 				Expect(err).To(BeNil())
 				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, 240)
+				Expect(err).To(BeNil())
 				// in case the broker with id 3 was the active controller we should wait for the new active controller
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(1), DefaultContainerName, 100)
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(2), DefaultContainerName, 100)
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(1), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
+				err = kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(2), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
 				out, err = kafkaClient.ReadFromTopic(GetBrokerPodName(0), DefaultContainerName, topicName, messageToTest)
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring(messageToTest))
@@ -191,9 +199,9 @@ var _ = Describe("KafkaTest", func() {
 			It("should have 3 replicas", func() {
 				err := utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 1)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				err = utils.KClient.UpdateInstancesCount(DefaultKudoKafkaInstance, customNamespace, 3)
 				Expect(err).To(BeNil())
@@ -202,7 +210,7 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
 			It("should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
@@ -233,9 +241,9 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
 			It("should have 3 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 3, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(3))
 			})
@@ -253,7 +261,8 @@ var _ = Describe("KafkaTest", func() {
 var _ = BeforeSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.CreateNamespace(customNamespace, false)
+	_, err := utils.KClient.CreateNamespace(customNamespace, false)
+	Expect(err).To(BeNil())
 	utils.Apply(fmt.Sprintf("%s/%s", repoRoot, resources), customNamespace)
 	utils.Setup(customNamespace)
 })

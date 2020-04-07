@@ -1,22 +1,19 @@
 package utils
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"strings"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 // KDCClient Struct defining the KDC Client
 type KDCClient struct {
-	pod       *v1.Pod
 	Namespace string
 }
 
 const (
-	POD_NAME       = "kdc"
-	CONTAINER_NAME = "kdc"
+	PodName       = "kdc"
+	ContainerName = "kdc"
 )
 
 // setNamespace Set Namespace
@@ -33,7 +30,7 @@ func (k *KDCClient) Deploy() error {
 		return KClient.WaitForPod("kdc", k.Namespace, 240)
 	}
 
-	return fmt.Errorf("environment variable REPO_ROOT is not set!")
+	return errors.New("environment variable REPO_ROOT is not set")
 }
 
 // TearDown Use it to destroy the kdc server
@@ -45,7 +42,7 @@ func (k *KDCClient) TearDown() error {
 		return nil
 	}
 
-	return fmt.Errorf("environment variable REPO_ROOT is not set!")
+	return errors.New("environment variable REPO_ROOT is not set")
 }
 
 // CreateKeytabSecret Pass it string array of principals and it will create a keytab secret
@@ -56,11 +53,11 @@ func (k *KDCClient) CreateKeytabSecret(principals []string, serviceName string, 
 		"rm /kdc/" + serviceName + ".keytab;" +
 		"cat /kdc/" + serviceName + "-principals.txt | while read line; do /usr/sbin/kadmin -l ext -k /kdc/" + serviceName + ".keytab $line; done;"
 
-	stdout, err := KClient.ExecInPod(k.Namespace, POD_NAME, CONTAINER_NAME, []string{"/bin/sh", "-c", command})
+	_, err := KClient.ExecInPod(k.Namespace, PodName, ContainerName, []string{"/bin/sh", "-c", command})
 	if err != nil {
 		return err
 	}
-	stdout, err = KClient.ExecInPod(k.Namespace, POD_NAME, CONTAINER_NAME, []string{"/bin/sh", "-c", "cat /kdc/" + serviceName + ".keytab | base64 -w 0"})
+	stdout, err := KClient.ExecInPod(k.Namespace, PodName, ContainerName, []string{"/bin/sh", "-c", "cat /kdc/" + serviceName + ".keytab | base64 -w 0"})
 	if err != nil {
 		return err
 	}

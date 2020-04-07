@@ -1,4 +1,4 @@
-package kafka_auto_tls
+package kafkaautotls
 
 import (
 	"fmt"
@@ -6,10 +6,11 @@ import (
 
 	"github.com/mesosphere/kudo-kafka-operator/tests/suites"
 
-	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+
+	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 )
 
 var (
@@ -23,9 +24,9 @@ var _ = Describe("KafkaAutoTLS", func() {
 				Namespace: utils.String(customNamespace),
 			})
 			It("statefulset should have 1 replica with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(suites.DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(suites.DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(suites.DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(suites.DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(suites.DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
@@ -57,14 +58,16 @@ var _ = Describe("KafkaAutoTLS", func() {
 var _ = BeforeSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.CreateNamespace(customNamespace, false)
-	utils.InstallKudoOperator(customNamespace, utils.ZK_INSTANCE, utils.ZK_FRAMEWORK_DIR_ENV, map[string]string{
+	_, err := utils.KClient.CreateNamespace(customNamespace, false)
+	Expect(err).To(BeNil())
+	utils.InstallKudoOperator(customNamespace, utils.ZkInstance, utils.ZkFrameworkDirEnv, map[string]string{
 		"MEMORY":     "256Mi",
 		"CPUS":       "0.25",
 		"NODE_COUNT": "1",
 	})
-	utils.KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
-	utils.InstallKudoOperator(customNamespace, utils.KAFKA_INSTANCE, utils.KAFKA_FRAMEWORK_DIR_ENV, map[string]string{
+	err = utils.KClient.WaitForStatefulSetCount(suites.DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
+	Expect(err).To(BeNil())
+	utils.InstallKudoOperator(customNamespace, utils.KafkaInstance, utils.KafkaFrameworkDirEnv, map[string]string{
 		"BROKER_MEM":                       "512Mi",
 		"BROKER_CPUS":                      "0.25",
 		"BROKER_COUNT":                     "1",
@@ -73,13 +76,15 @@ var _ = BeforeSuite(func() {
 		"USE_AUTO_TLS_CERTIFICATE":         "true",
 		"OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
 	})
-	utils.KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+	err = utils.KClient.WaitForStatefulSetCount(suites.DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
+	Expect(err).To(BeNil())
 })
 
 var _ = AfterSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.DeleteNamespace(customNamespace)
+	err := utils.KClient.DeleteNamespace(customNamespace)
+	Expect(err).To(BeNil())
 })
 
 func TestService(t *testing.T) {

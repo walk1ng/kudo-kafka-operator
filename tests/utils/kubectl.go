@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	KAFKA_FRAMEWORK_DIR_ENV = "KAFKA_FRAMEWORK_DIR"
-	ZK_FRAMEWORK_DIR_ENV    = "ZK_FRAMEWORK_DIR"
+	KafkaFrameworkDirEnv = "KAFKA_FRAMEWORK_DIR"
+	ZkFrameworkDirEnv    = "ZK_FRAMEWORK_DIR"
 )
 
 type environment struct {
@@ -32,10 +32,14 @@ func applyManifests(resourcesAbsoluteDirectoryPath, action, namespace string) {
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 	log.Info(fmt.Sprintf("Applying templates in directory: %s", resourcesAbsoluteDirectoryPath))
 	env := environment{kubectlPath, namespace}
+	var err error
 	if action == "apply" {
-		filepath.Walk(resourcesAbsoluteDirectoryPath, env.applyManifest)
+		err = filepath.Walk(resourcesAbsoluteDirectoryPath, env.applyManifest)
 	} else if action == "delete" {
-		filepath.Walk(resourcesAbsoluteDirectoryPath, env.deleteManifest)
+		err = filepath.Walk(resourcesAbsoluteDirectoryPath, env.deleteManifest)
+	}
+	if err != nil {
+		log.Errorf("error applying manifests with error: %v", err)
 	}
 }
 
@@ -55,7 +59,7 @@ func (env *environment) apply(filePath string, info os.FileInfo, err error, dele
 	}
 	if !info.IsDir() {
 		log.Info(fmt.Sprintf("%s Template: %q\n", action, filePath))
-		cmd := exec.Command(env.kubectlPath, action, "-f", filePath, "--namespace", env.namespace)
+		cmd := exec.Command(env.kubectlPath, action, "-f", filePath, "--namespace", env.namespace) //#nosec G204
 		out, err := cmd.Output()
 		if err != nil {
 			log.Error(string(err.(*exec.ExitError).Stderr))

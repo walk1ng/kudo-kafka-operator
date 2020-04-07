@@ -1,4 +1,4 @@
-package kafka_upgrade
+package kafkaupgrade
 
 import (
 	"fmt"
@@ -9,11 +9,12 @@ import (
 
 	. "github.com/mesosphere/kudo-kafka-operator/tests/suites"
 
-	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/mesosphere/kudo-kafka-operator/tests/utils"
 )
 
 var (
@@ -29,7 +30,8 @@ var _ = Describe("KafkaTest", func() {
 	Describe("[Kafka Upgrade Checks]", func() {
 		Context("default installation", func() {
 			It("service should have count 1", func() {
-				utils.KClient.WaitForStatus(utils.KAFKA_INSTANCE, customNamespace, v1beta1.ExecutionComplete, 300)
+				err := utils.KClient.WaitForStatus(utils.KafkaInstance, customNamespace, v1beta1.ExecutionComplete, 300)
+				Expect(err).To(BeNil())
 				kudoInstances, _ := utils.KClient.GetInstancesInNamespace(customNamespace)
 				for _, instance := range kudoInstances.Items {
 					log.Printf("%s kudo instance in namespace %s ", instance.Name, instance.Namespace)
@@ -41,19 +43,20 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
 			It("statefulset should have 1 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
 			It("Create a topic and write a message", func() {
-				kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
+				err := kafkaClient.WaitForBrokersToBeRegisteredWithService(GetBrokerPodName(0), DefaultContainerName, 100)
+				Expect(err).To(BeNil())
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName = fmt.Sprintf("test-topic-%s", topicSuffix)
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "")
 				Expect(err).To(BeNil())
@@ -65,10 +68,11 @@ var _ = Describe("KafkaTest", func() {
 		})
 		Context("upgrade operator", func() {
 			It("operator version should change", func() {
-				currentOperatorVersion, _ := utils.KClient.GetOperatorVersionForKudoInstance(utils.KAFKA_INSTANCE, customNamespace)
-				utils.KClient.UpgardeInstanceFromPath(os.Getenv(utils.KAFKA_FRAMEWORK_DIR_ENV), customNamespace, utils.KAFKA_INSTANCE, map[string]string{})
-				utils.KClient.WaitForStatus(utils.KAFKA_INSTANCE, customNamespace, v1beta1.ExecutionComplete, 300)
-				newOperatorVersion, _ := utils.KClient.GetOperatorVersionForKudoInstance(utils.KAFKA_INSTANCE, customNamespace)
+				currentOperatorVersion, _ := utils.KClient.GetOperatorVersionForKudoInstance(utils.KafkaInstance, customNamespace)
+				utils.KClient.UpgardeInstanceFromPath(os.Getenv(utils.KafkaFrameworkDirEnv), customNamespace, utils.KafkaInstance, map[string]string{})
+				err := utils.KClient.WaitForStatus(utils.KafkaInstance, customNamespace, v1beta1.ExecutionComplete, 300)
+				Expect(err).To(BeNil())
+				newOperatorVersion, _ := utils.KClient.GetOperatorVersionForKudoInstance(utils.KafkaInstance, customNamespace)
 				Expect(newOperatorVersion).NotTo(BeNil())
 				Expect(newOperatorVersion).NotTo(Equal(currentOperatorVersion))
 			})
@@ -76,9 +80,9 @@ var _ = Describe("KafkaTest", func() {
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
 			It("statefulset should have 1 replicas with status READY", func() {
-				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err := utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
-				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+				err = utils.KClient.WaitForStatefulSetReadyReplicasCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
 				Expect(err).To(BeNil())
 				Expect(utils.KClient.GetStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace)).To(Equal(1))
 			})
@@ -95,21 +99,24 @@ var _ = Describe("KafkaTest", func() {
 var _ = BeforeSuite(func() {
 	utils.TearDown(customNamespace)
 	Expect(utils.DeletePVCs("data-dir")).To(BeNil())
-	utils.KClient.CreateNamespace(customNamespace, false)
-	utils.InstallKudoOperator(customNamespace, utils.ZK_INSTANCE, utils.ZK_FRAMEWORK_DIR_ENV, map[string]string{
+	_, err := utils.KClient.CreateNamespace(customNamespace, false)
+	Expect(err).To(BeNil())
+	utils.InstallKudoOperator(customNamespace, utils.ZkInstance, utils.ZkFrameworkDirEnv, map[string]string{
 		"MEMORY":     "256Mi",
 		"CPUS":       "0.25",
 		"NODE_COUNT": "1",
 	})
-	utils.KClient.WaitForStatefulSetCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
-	utils.KClient.InstallOperatorFromRepository(customNamespace, "kafka", utils.KAFKA_INSTANCE, defaultOperatorVersion, map[string]string{
+	err = utils.KClient.WaitForStatefulSetCount(DefaultZkStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
+	Expect(err).To(BeNil())
+	utils.KClient.InstallOperatorFromRepository(customNamespace, "kafka", utils.KafkaInstance, defaultOperatorVersion, map[string]string{
 		"BROKER_MEM":                       "512Mi",
 		"BROKER_CPUS":                      "0.25",
 		"ZOOKEEPER_URI":                    "zookeeper-instance-zookeeper-0.zookeeper-instance-hs:2181",
 		"BROKER_COUNT":                     "1",
 		"OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
 	})
-	utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWaitSeconds)
+	err = utils.KClient.WaitForStatefulSetCount(DefaultKafkaStatefulSetName, customNamespace, 1, utils.DefaultStatefulReadyWait)
+	Expect(err).To(BeNil())
 	utils.KClient.LogObjectsOfKinds(customNamespace, []string{"svc", "pdb", "operatorversions", "operators", "instance"})
 })
 

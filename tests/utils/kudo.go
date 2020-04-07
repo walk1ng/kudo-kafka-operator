@@ -81,7 +81,7 @@ func (c *KubernetesTestClient) GetOperatorVersionForKudoInstance(name, namespace
 }
 
 func (c *KubernetesTestClient) UpdateInstancesCount(name, namespace string, count int) error {
-	_, err := Retry(3, 0*time.Second, EMPTY_CONDITION, func() (string, error) {
+	_, err := Retry(3, 0*time.Second, EmptyCondition, func() (string, error) {
 		return updateInstancesCount(name, namespace, count)
 	})
 	return err
@@ -114,7 +114,7 @@ func updateInstancesCount(name, namespace string, count int) (string, error) {
 }
 
 func (c *KubernetesTestClient) UpdateInstanceParams(name, namespace string, mapParam map[string]string) error {
-	_, err := Retry(3, 0*time.Second, EMPTY_CONDITION, func() (string, error) {
+	_, err := Retry(3, 0*time.Second, EmptyCondition, func() (string, error) {
 		return updateInstanceParams(name, namespace, mapParam)
 	})
 	return err
@@ -173,7 +173,7 @@ func (c *KubernetesTestClient) installOrUpgradeOperator(operation, namespace, op
 	kubectlPath := getKubectlPath()
 	log.Info(fmt.Sprintf("Using kubectl from path: %s", kubectlPath))
 
-	install_cmd := []string{
+	installCmd := []string{
 		"kudo",
 		operation,
 		operatorNameOrPath,
@@ -182,14 +182,14 @@ func (c *KubernetesTestClient) installOrUpgradeOperator(operation, namespace, op
 	}
 
 	if version != "" {
-		install_cmd = append(install_cmd, fmt.Sprintf("--operator-version=%s", version))
+		installCmd = append(installCmd, fmt.Sprintf("--operator-version=%s", version))
 	}
 
 	for key, val := range params {
-		install_cmd = append(install_cmd, "-p", fmt.Sprintf("%s=%s", key, val))
+		installCmd = append(installCmd, "-p", fmt.Sprintf("%s=%s", key, val))
 	}
 
-	cmd := exec.Command(kubectlPath, install_cmd...)
+	cmd := exec.Command(kubectlPath, installCmd...)
 	log.Infoln(cmd.Args)
 	out, err := cmd.Output()
 	if err != nil {
@@ -212,7 +212,7 @@ func (c *KubernetesTestClient) DeleteInstance(namespace, name string) {
 
 func (c *KubernetesTestClient) WaitForStatus(name, namespace string, expectedStatus v1beta1.ExecutionStatus, timeoutSeconds time.Duration) error {
 	timeout := time.After(timeoutSeconds * time.Second)
-	tick := time.Tick(2 * time.Second)
+	tick := time.Tick(2 * time.Second) //nolint
 	for {
 		select {
 		case <-timeout:
@@ -248,7 +248,7 @@ func (c *KubernetesTestClient) LogObjectsOfKinds(namespace string, components []
 		if err != nil {
 			log.Error(string(err.(*exec.ExitError).Stderr))
 		}
-		log.Info(fmt.Sprintf(string(out)))
+		log.Info(string(out))
 	}
 }
 
@@ -275,7 +275,7 @@ func (c *KubernetesTestClient) PrintLogsOfNamespace(namespace string) {
 	if err != nil {
 		log.Error(string(err.(*exec.ExitError).Stderr))
 	}
-	log.Info(fmt.Sprintf(string(out)))
+	log.Info(string(out))
 
 }
 
