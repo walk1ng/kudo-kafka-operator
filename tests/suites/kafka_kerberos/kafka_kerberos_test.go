@@ -43,7 +43,7 @@ var _ = Describe("KafkaTest", func() {
 				})
 				topicSuffix, _ := utils.GetRandString(6)
 				topicName := fmt.Sprintf("test-topic-%s", topicSuffix)
-				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "1")
+				out, err := kafkaClient.CreateTopic(GetBrokerPodName(0), DefaultContainerName, topicName, "")
 				Expect(err).To(BeNil())
 				Expect(out).To(ContainSubstring("Created topic"))
 				kafkaClient.DescribeTopic(GetBrokerPodName(0), DefaultContainerName, topicName)

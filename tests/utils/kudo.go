@@ -235,7 +235,7 @@ func (c *KubernetesTestClient) GetPlanStatusForInstance(name, namespace string) 
 		log.Errorf("error getting kudo instance in namespace %s for instance %s kubernetes client: %v", namespace, name, err)
 		return "", err
 	}
-	return instance.Status.AggregatedStatus.Status, nil
+	return instance.GetLastExecutedPlanStatus().Status, nil
 }
 
 func (c *KubernetesTestClient) LogObjectsOfKinds(namespace string, components []string) {

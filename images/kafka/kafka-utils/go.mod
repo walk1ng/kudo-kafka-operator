@@ -11,7 +11,6 @@ replace k8s.io/client-go => k8s.io/client-go v0.0.0-20191016111102-bec269661e48
 require (
 	github.com/avast/retry-go v2.4.3+incompatible
 	github.com/golang/mock v1.2.0
-	github.com/matryer/moq v0.0.0-20191106032847-0e0395200ade // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/sirupsen/logrus v1.4.2

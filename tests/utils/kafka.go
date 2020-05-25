@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	defaultKafkaRetry               = 3
-	defaultKafkaRetryInterval       = 1 * time.Second
+	defaultKafkaRetry               = 10
+	defaultKafkaRetryInterval       = 5 * time.Second
 	defaultNamespace                = "default"
 	defaultInstanceName             = "kafka"
 	DefaultStatefulReadyWaitSeconds = 300 * time.Second

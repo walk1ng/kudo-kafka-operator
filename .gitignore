@@ -1,2 +1,3 @@
 tests/suites/**/*-junit.xml
 images/kafka-utils/**/*-junit.xml
+images/kafka/kafka-connectors-setup/kafka-connectors
