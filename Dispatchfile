@@ -225,6 +225,5 @@ dindTask("checks", inputs=inputs, outputs=["artifacts"], steps=[k8s.corev1.Conta
  )
 ])
 
-
 load("github.com/mesosphere/dispatch-catalog/starlark/stable/pipeline@0.0.4", "push")
 action(tasks=["goimports-check", "checks"], on=push())
