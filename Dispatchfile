@@ -49,7 +49,6 @@ dindTask("checks", inputs=inputs, outputs=["artifacts"], steps=[k8s.corev1.Conta
   name="pre-checks",
   command=[
     "/entrypoint.sh",
-    "./kudo-kafka-operator/tools/docker.sh",
     "env", "BUILD_VCS_NUMBER_kudo_kafka_operator=$(context.git.commit)",
     "./kudo-kafka-operator/shared/teamcity/run-pre-checks",
     "--build_artifacts_directory", "$(resources.outputs.artifacts.path)",
