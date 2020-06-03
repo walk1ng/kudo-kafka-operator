@@ -196,7 +196,7 @@ func (c *KafkaService) getNodeExternalIP() (string, error) {
 		return "", err
 	}
 	for _, address := range node.Status.Addresses {
-		if address.Type == v1.NodeExternalIP {
+		if address.Type == v1.NodeInternalIP {
 			return address.Address, nil
 		}
 	}
